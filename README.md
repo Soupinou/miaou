@@ -1,27 +1,26 @@
 # Miaou
 
-A cute desktop cat that alerts you when your CLI needs attention. Click it to jump to the right tmux session.
+A tiny pixel cat that lives on your desktop and alerts you when [Claude Code](https://docs.anthropic.com/en/docs/claude-code) or [Codex](https://openai.com/index/codex/) needs your attention.
 
-## Features
+<p align="center">
+  <img alt="soupinou walk" src="assets/soupinou_walk.gif" width="128" />
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img alt="soupinou notification" src="assets/soupinou_notification.gif" width="128" />
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img alt="lou notification" src="https://github.com/user-attachments/assets/5cf4d2c9-833e-4fb9-a4d1-3a0255b1ee74" width="128" />
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img alt="lou walk and sleep" src="https://github.com/user-attachments/assets/b1fade38-436a-4bf2-b7da-e754153ce613" width="128" />
+</p>
 
-- Roaming cat that walks and sleeps around your screen (like a real cat!)
-- Integrates with Claude Code hooks via `miaou://` URL scheme
-- Click the cat when it's bouncing to switch to the correct tmux pane
-- Auto-dismisses when you manually switch to the target tmux pane
-- Click status bar icon to do the same (left-click = cat action, right-click = menu)
-- Double-tap Option key (⌥⌥) as a global hotkey to jump to the tmux session
-- Never steals focus from your current app
-- Drag and drop the cat anywhere on screen or to another monitor (sets new "home" position)
-- Cat roams within a configurable radius of its home position
-- Preferences window (via menu bar) to customize:
-  - Pet (Soupinou, Chawy, Pistache, Chalom, Sundae)
-  - Size (0.5x - 2x)
-  - Speed (0.5x - 2x)
-  - Activity (10% - 90% walk probability, default 40%)
-- Status bar icon animates when notification is active
-- Lightweight (~15-20MB memory)
+## Why?
+
+When you run AI coding agents in tmux sessions, you lose track of which one needs input. Miaou fixes that: the cat bounces when a session needs you, and clicking it takes you straight there.
+
+Between notifications, it just hangs out on your screen — walking, sleeping, being a cat.
 
 ## Install
+
+Requires macOS 13+ and Swift 5.9+.
 
 ```bash
 git clone https://github.com/Soupinou/miaou.git
@@ -29,185 +28,129 @@ cd miaou
 ./install.sh
 ```
 
-This builds the app, installs it to `/Applications/`, configures Claude Code hooks automatically, and adds the `miaou` CLI to your PATH. That's it!
+This will:
+- Build the app from source and install it to `/Applications/`
+- Configure Claude Code hooks in `~/.claude/settings.json` (backs up first)
+- Add the `miaou` CLI to your PATH
+- Launch the cat
 
-The cat bounces when Claude finishes a response or needs your permission. Click it to switch to the exact tmux pane.
+That's it. The cat is now on your screen.
+
+## How it works
+
+```
+Claude Code finishes / needs permission
+        |
+        v
+Hook fires -> miaou://notify -> Cat bounces!
+        |
+        v
+Click the cat (or press Option twice) -> tmux switches to the right pane
+```
+
+The hook script detects your active tmux session and only fires when you're not already looking at the right pane. It supports **Alacritty**, **Ghostty**, **iTerm2**, **Kitty**, **Terminal**, **Warp**, and **WezTerm**.
 
 ## CLI
 
-After install, the `miaou` command is available:
-
 ```
-miaou install     # First-time setup
-miaou update      # Rebuild from source, replace app, restart
-miaou start       # Launch the app
-miaou stop        # Quit the app
-miaou uninstall   # Remove everything
-```
-
-## URL Scheme
-
-The app responds to `miaou://` URLs:
-
-- `miaou://notify?target=SESSION%3AWINDOW.PANE&title=MESSAGE` - Alert the user, store tmux target for click action
-- `miaou://reset` - Return cat to normal idle state
-
-Note: The target uses URL encoding (`:` → `%3A`, `.` → `%2E`).
-
-## Project Structure
-
-```
-scripts/
-├── cli.sh                    # miaou CLI (install/update/start/stop/uninstall)
-├── bundle-app.sh             # Build .app bundle from Swift source
-├── claude-code-notify.sh     # Notify script installed to ~/.claude/
-└── miaou-codex-notify.sh     # Notify script for OpenAI Codex
-
-Miaou/
-├── App/
-│   ├── MiaouApp.swift              # App entry point
-│   └── AppDelegate.swift           # URL handling, status bar
-├── Views/
-│   ├── CatWindowController.swift   # Main window management
-│   └── CatView.swift               # Cat rendering & interaction
-├── Models/
-│   ├── CatState.swift              # State definitions
-│   ├── CatPreferences.swift        # User preferences (UserDefaults)
-│   └── RoamingBehavior.swift       # Movement logic
-├── Animation/
-│   ├── CatAnimator.swift           # Frame animation
-│   └── SpriteManager.swift         # Asset loading
-├── Resources/                       # Pet sprite PNGs (organized by pet)
-└── Info.plist
+miaou install     First-time setup (build, install, configure hooks)
+miaou update      Rebuild from source, replace app, restart
+miaou start       Launch the app
+miaou stop        Quit the app
+miaou uninstall   Remove everything cleanly
 ```
 
 ## Customization
 
-Right-click the status bar icon to access settings directly in the menu:
+Right-click the menu bar icon to configure:
 
-- **Pet**: Soupinou, Chawy, Pistache, Chalom, Sundae
-- **Size**: 0.5x to 2x scale
-- **Speed**: 0.5x to 2x walk speed
-- **Activity**: 10% to 90% walk probability (default 40%, so 60% sleep - he's a cat!)
-- **Roaming Radius**: How far the cat wanders from its "home" position
-  - Small (100px), Medium (150px, default), Large (250px), Extra Large (400px), Unlimited
-  - Home is set on spawn and updated when you drag & drop the cat
-- **Hotkey (⌥⌥)**: Enable/disable double-tap Option key to jump to tmux session
-- **Show env tooltip**: Show worktree/session name above the cat on notification (disabled by default)
-- **Launch at Login**: Start automatically when you log in
+| Setting | Options |
+|---------|---------|
+| **Pet** | Soupinou, Chawy, Pistache, Chalom, Sundae |
+| **Size** | 0.5x to 2x |
+| **Speed** | 0.5x to 2x |
+| **Activity** | 10% (sleepy) to 90% (hyper), default 40% |
+| **Roaming radius** | Small, Medium, Large, Extra Large, Unlimited |
+| **Terminal** | Alacritty, Ghostty, iTerm2, Kitty, Terminal, Warp, WezTerm |
+| **Hotkey** | Double-tap Option (enabled by default) |
+| **Env tooltip** | Show session name above the cat on notification |
+| **Launch at Login** | Auto-start on login |
 
-Settings are saved automatically and persist across app restarts.
+You can also drag and drop the cat anywhere on your screen (or to another monitor). It remembers where you put it and roams around that spot.
 
-## How It Works
+## Adding your own pet
 
-### Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        AppDelegate                               │
-│  • URL scheme handler (miaou://)                                │
-│  • Status bar icon + menu                                        │
-│  • Status bar animation (6 frames @ 5fps during notification)   │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    CatWindowController                           │
-│  • Borderless floating window (.floating level)                 │
-│  • Coordinates roaming behavior + animator                      │
-│  • Handles tmux session switching on click                      │
-└──────────┬─────────────────────────────────┬────────────────────┘
-           │                                 │
-           ▼                                 ▼
-┌─────────────────────┐           ┌─────────────────────┐
-│   RoamingBehavior   │           │     CatAnimator     │
-│                     │           │                     │
-│ • State machine:    │           │ • Sprite animation  │
-│   idle/walking/     │           │ • 3 fps frame rate  │
-│   sleeping/attention│           │ • Per-pet sprites   │
-│                     │           │                     │
-│ • Decision timer    │           └─────────────────────┘
-│   (4s interval)     │
-│                     │
-│ • Movement timer    │
-│   (60fps, only when │
-│   walking/bouncing) │
-└─────────────────────┘
-```
-
-### State Machine
-
-The cat has 4 states:
-- **idle**: Transitional state
-- **walking**: Moving toward a random target position
-- **sleeping**: Stationary, wakes up after 8-20 seconds
-- **attentionNeeded**: Bouncing in place, waiting for click
-
-State transitions:
-```
-start → makeDecision() → walking (40%) or sleeping (60%)
-walking → reaches target → makeDecision()
-sleeping → 8-20s timeout → makeDecision()
-notification URL → attentionNeeded
-click on attention → tmux switch → makeDecision()
-```
-
-### CPU Optimization
-
-1. **Movement timer only when needed**: The 60fps timer only runs during `walking` or `attentionNeeded` states. When sleeping/idle, no timer runs.
-
-2. **Pause when hidden**: When "Hide Cat" is clicked, all timers stop completely. The status bar icon remains but uses 0 CPU.
-
-3. **Low-frequency animation**: Sprite animation runs at 3fps (sufficient for pixel art).
-
-### URL Scheme Flow
+Sprites live in `Miaou/Resources/<pet_name>/` as PNGs. Each pet needs 3 animations with 6 frames each:
 
 ```
-Claude Code hook fires
-        │
-        ▼
-open "miaou://notify?target=session%3Awindow.pane&title=..."
-        │
-        ▼
-AppDelegate.handleURLEvent()
-        │
-        ▼
-CatWindowController.triggerAttention(target, title)
-        │
-        ├──► RoamingBehavior.state = .attentionNeeded
-        │    (starts 60fps bounce timer)
-        │
-        └──► CatAnimator.play(.notification)
-             (starts notification sprite loop)
-        │
-        ▼
-Status bar starts animating (icon_1..6.png @ 5fps)
-        │
-        ▼
-User clicks cat or status bar
-        │
-        ▼
-openTmuxSession()
-        │
-        ├──► tmux switch-client -t "session:window.pane"
-        │
-        └──► AppleScript: tell terminal app to activate
-        │
-        ▼
-resetToIdle() → makeDecision() → normal roaming
+00_petname_walk.png  ...  05_petname_walk.png
+00_petname_sleep.png
+00_petname_notification.png  ...  05_petname_notification.png
 ```
 
-### Security
+Then add your pet to the `CatType.allCats` array in `Miaou/Models/CatState.swift` and run `miaou update`.
 
-The tmux target from URL is validated before shell execution:
-- Regex whitelist: `^[A-Za-z0-9_.:-]+$`
-- Single quote escaping as defense in depth
+PRs with new pets are welcome!
 
-This prevents command injection via malicious `miaou://` URLs.
+## Codex support
+
+A separate hook script is included for OpenAI Codex. See `scripts/miaou-codex-notify.sh` and configure it in your Codex settings.
+
+## Technical details
+
+<details>
+<summary>Architecture</summary>
+
+The app is a borderless, non-activating floating window that never steals focus.
+
+**State machine** — The cat has 4 states:
+- **idle** — Transitional
+- **walking** — Moving toward a random target within roaming radius
+- **sleeping** — Stationary for 8-20 seconds
+- **attentionNeeded** — Bouncing, waiting for click
+
+**CPU optimization:**
+- Movement timer (60fps) only runs while walking or bouncing
+- Sprite animation runs at 3fps (pixel art doesn't need more)
+- "Hide Cat" stops all timers (0 CPU)
+- Lightweight: ~15-20MB memory
+
+**Security:** tmux targets from URLs are validated against `^[A-Za-z0-9_.:-]+$` before shell execution.
+
+</details>
+
+<details>
+<summary>Project structure</summary>
+
+```
+scripts/
+  cli.sh                     CLI (install/update/start/stop/uninstall)
+  bundle-app.sh              Build .app bundle from Swift source
+  claude-code-notify.sh      Hook script installed to ~/.claude/
+  miaou-codex-notify.sh      Hook script for OpenAI Codex
+
+Miaou/
+  App/
+    MiaouApp.swift            App entry point
+    AppDelegate.swift         URL handling, status bar, hotkey
+  Views/
+    CatWindowController.swift Window management, tooltip, tmux switching
+    CatView.swift             Rendering and interaction
+  Models/
+    CatState.swift            State definitions, pet registry
+    CatPreferences.swift      User preferences (UserDefaults)
+    RoamingBehavior.swift     Movement logic
+  Animation/
+    CatAnimator.swift         Frame animation
+    SpriteManager.swift       Asset loading and caching
+  Resources/                  Pet sprites and status bar icons
+```
+
+</details>
 
 ## Credits
 
-- Inspired by [Dockitty](https://www.dockitty.app/)
+Originally created as [DustHiveCat](https://github.com/dust-tt/dust/tree/main/x/daph/dust-hive-cat) at [Dust](https://dust.tt). Inspired by [Dockitty](https://www.dockitty.app/).
 
 ## License
 
