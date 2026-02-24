@@ -3,13 +3,13 @@
 A tiny pixel cat that lives on your desktop and alerts you when [Claude Code](https://docs.anthropic.com/en/docs/claude-code) or [Codex](https://openai.com/index/codex/) needs your attention.
 
 <p align="center">
-  <img alt="soupinou walk" src="assets/soupinou_walk.gif" width="128" />
+  <img alt="soupinou walk" src="assets/soupinou_walk.gif" width="100" />
   &nbsp;&nbsp;&nbsp;&nbsp;
-  <img alt="soupinou notification" src="assets/soupinou_notification.gif" width="128" />
+  <img alt="soupinou notification" src="assets/soupinou_notification.gif" width="100" />
   &nbsp;&nbsp;&nbsp;&nbsp;
-  <img alt="lou walk" src="assets/lou_walk.gif" width="128" />
+  <img alt="lou walk" src="assets/lou_walk.gif" width="105" />
   &nbsp;&nbsp;&nbsp;&nbsp;
-  <img alt="lou notification" src="assets/lou_notification.gif" width="128" />
+  <img alt="lou notification" src="assets/lou_notification.gif" width="75" />
 </p>
 
 ## Why?
