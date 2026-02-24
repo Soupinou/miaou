@@ -7,9 +7,9 @@ A tiny pixel cat that lives on your desktop and alerts you when [Claude Code](ht
   &nbsp;&nbsp;&nbsp;&nbsp;
   <img alt="soupinou notification" src="assets/soupinou_notification.gif" width="128" />
   &nbsp;&nbsp;&nbsp;&nbsp;
-  <img alt="lou notification" src="https://github.com/user-attachments/assets/5cf4d2c9-833e-4fb9-a4d1-3a0255b1ee74" width="128" />
+  <img alt="lou walk" src="assets/lou_walk.gif" width="128" />
   &nbsp;&nbsp;&nbsp;&nbsp;
-  <img alt="lou walk and sleep" src="https://github.com/user-attachments/assets/b1fade38-436a-4bf2-b7da-e754153ce613" width="128" />
+  <img alt="lou notification" src="assets/lou_notification.gif" width="128" />
 </p>
 
 ## Why?
@@ -66,7 +66,7 @@ Right-click the menu bar icon to configure:
 
 | Setting | Options |
 |---------|---------|
-| **Pet** | Soupinou, Chawy, Pistache, Chalom, Sundae |
+| **Pet** | Soupinou, Chawy, Pistache, Chalom, Sundae, Lou |
 | **Size** | 0.5x to 2x |
 | **Speed** | 0.5x to 2x |
 | **Activity** | 10% (sleepy) to 90% (hyper), default 40% |
