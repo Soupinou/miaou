@@ -73,8 +73,8 @@ class CatView: NSView {
         if !isDragging {
             isDragging = true
             isDragPaused = false
-            // Snap anchor to neck (top-center) so cursor holds the scruff
-            dragOffset = NSPoint(x: bounds.width / 2, y: bounds.height * 0.9)
+            // Snap anchor above head so cursor doesn't hide the cat
+            dragOffset = NSPoint(x: bounds.width / 2, y: bounds.height * 1.15)
             delegate?.catViewDragDidBegin()
         }
 
