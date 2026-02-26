@@ -386,6 +386,9 @@ extension CatWindowController: CatViewDelegate {
 
     func catViewWasDragged(to position: NSPoint) {
         roaming.endDragging(at: position)
+        if case .attentionNeeded = roaming.state {
+            animator.play(.notification, loop: true, direction: roaming.direction)
+        }
     }
 }
 
