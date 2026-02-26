@@ -364,6 +364,24 @@ extension CatWindowController: CatViewDelegate {
 
     func catViewDragDidBegin() {
         roaming.beginDragging()
+        let liftedFrames = SpriteManager.shared.loadFrames(catType: prefs.catType, animation: .lifted)
+        if !liftedFrames.isEmpty {
+            animator.play(.lifted, loop: true, direction: roaming.direction)
+        }
+    }
+
+    func catViewDragDidPause() {
+        let idleFrames = SpriteManager.shared.loadFrames(catType: prefs.catType, animation: .liftedIdle)
+        if !idleFrames.isEmpty {
+            animator.play(.liftedIdle, loop: true, direction: roaming.direction)
+        }
+    }
+
+    func catViewDragDidResume() {
+        let liftedFrames = SpriteManager.shared.loadFrames(catType: prefs.catType, animation: .lifted)
+        if !liftedFrames.isEmpty {
+            animator.play(.lifted, loop: true, direction: roaming.direction)
+        }
     }
 
     func catViewWasDragged(to position: NSPoint) {

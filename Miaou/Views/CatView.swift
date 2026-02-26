@@ -4,6 +4,8 @@ protocol CatViewDelegate: AnyObject {
     func catViewWasClicked()
     func catViewWasDragged(to position: NSPoint)
     func catViewDragDidBegin()
+    func catViewDragDidPause()
+    func catViewDragDidResume()
 }
 
 class CatView: NSView {
@@ -11,6 +13,8 @@ class CatView: NSView {
 
     private var imageView: NSImageView!
     private var isDragging = false
+    private var isDragPaused = false
+    private var dragMoveTimer: Timer?
     private var dragOffset: NSPoint = .zero
 
     override init(frame frameRect: NSRect) {
@@ -62,12 +66,30 @@ class CatView: NSView {
     override func mouseDown(with event: NSEvent) {
         isDragging = false
         dragOffset = event.locationInWindow
+        NSCursor.closedHand.push()
     }
 
     override func mouseDragged(with event: NSEvent) {
         if !isDragging {
             isDragging = true
+            isDragPaused = false
+            // Snap anchor to neck (top-center) so cursor holds the scruff
+            dragOffset = NSPoint(x: bounds.width / 2, y: bounds.height * 0.9)
             delegate?.catViewDragDidBegin()
+        }
+
+        // Resume swinging animation if mouse was paused
+        if isDragPaused {
+            isDragPaused = false
+            delegate?.catViewDragDidResume()
+        }
+
+        // Reset pause detection timer
+        dragMoveTimer?.invalidate()
+        dragMoveTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: false) { [weak self] _ in
+            guard let self, self.isDragging else { return }
+            self.isDragPaused = true
+            self.delegate?.catViewDragDidPause()
         }
 
         guard let window = self.window else { return }
@@ -81,6 +103,10 @@ class CatView: NSView {
     }
 
     override func mouseUp(with event: NSEvent) {
+        NSCursor.pop()
+        dragMoveTimer?.invalidate()
+        dragMoveTimer = nil
+        isDragPaused = false
         if !isDragging {
             // It was a click, not a drag
             delegate?.catViewWasClicked()
