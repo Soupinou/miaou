@@ -122,7 +122,7 @@ class RoamingBehavior {
         if case .attentionNeeded = state {
             // Keep attention state
         } else {
-            state = .sleeping  // Pause movement after drag
+            makeDecision()  // Let the cat decide what to do next
         }
         clampPosition()
         delegate?.roamingDidUpdatePosition(position)
