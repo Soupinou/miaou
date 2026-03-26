@@ -12,6 +12,16 @@ class CatWindowController: NSWindowController {
     private var animator: CatAnimator!
     private let prefs = CatPreferences.shared
 
+    /// Resolve tmux binary path at startup (GUI apps have minimal PATH without /opt/homebrew/bin)
+    private static let tmuxPath: String = {
+        for path in ["/opt/homebrew/bin/tmux", "/usr/local/bin/tmux", "/usr/bin/tmux"] {
+            if FileManager.default.isExecutableFile(atPath: path) {
+                return path
+            }
+        }
+        return "tmux"
+    }()
+
     private var pendingTarget: String?  // tmux target: session:window.pane
     private var pendingTitle: String?
 
@@ -284,10 +294,11 @@ class CatWindowController: NSWindowController {
             let task = Process()
             let pipe = Pipe()
             task.launchPath = "/bin/bash"
+            let tmux = Self.tmuxPath
             task.arguments = ["-c", """
                 TARGET='\(safeTarget)'
-                WINDOW_ACTIVE=$(tmux display-message -t "$TARGET" -p '#{window_active}' 2>/dev/null)
-                PANE_ACTIVE=$(tmux display-message -t "$TARGET" -p '#{pane_active}' 2>/dev/null)
+                WINDOW_ACTIVE=$(\(tmux) display-message -t "$TARGET" -p '#{window_active}' 2>/dev/null)
+                PANE_ACTIVE=$(\(tmux) display-message -t "$TARGET" -p '#{pane_active}' 2>/dev/null)
                 if [ "$WINDOW_ACTIVE" = "1" ] && [ "$PANE_ACTIVE" = "1" ]; then
                     echo "focused"
                 fi
@@ -322,13 +333,14 @@ class CatWindowController: NSWindowController {
             let safeTarget = target.replacingOccurrences(of: "'", with: "'\"'\"'")
             let task = Process()
             task.launchPath = "/bin/bash"
+            let tmux = Self.tmuxPath
             let cmd = """
             TARGET='\(safeTarget)'
-            CLIENT=$(tmux list-clients -F '#{client_name}' 2>/dev/null | head -1)
+            CLIENT=$(\(tmux) list-clients -F '#{client_name}' 2>/dev/null | head -1)
             if [ -n "$CLIENT" ]; then
-                tmux switch-client -c "$CLIENT" -t "$TARGET" 2>/dev/null
+                \(tmux) switch-client -c "$CLIENT" -t "$TARGET" 2>/dev/null
             else
-                tmux switch-client -t "$TARGET" 2>/dev/null
+                \(tmux) switch-client -t "$TARGET" 2>/dev/null
             fi
             """
             task.arguments = ["-c", cmd]
