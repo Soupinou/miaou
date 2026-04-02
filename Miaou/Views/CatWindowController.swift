@@ -480,6 +480,8 @@ class CatWindowController: NSWindowController {
     }
 
     private func refreshSpeechBubbleContent() {
+        // Skip polling for cmux — CLI commands activate the app and steal focus
+        guard !isCmux else { return }
         guard let target = pendingTarget, let view = speechBubbleView else { return }
 
         DispatchQueue.global(qos: .utility).async { [weak self] in
@@ -537,9 +539,8 @@ class CatWindowController: NSWindowController {
 
     /// Read window/workspace name for the bubble header
     private func readWindowName(target: String) -> String? {
-        if isCmux {
-            return readCmuxWorkspaceName(target: target)
-        }
+        // Skip cmux CLI calls — they activate the app and steal focus
+        if isCmux { return nil }
         return readTmuxWindowName(target: target)
     }
 
@@ -876,7 +877,10 @@ class CatWindowController: NSWindowController {
 
     private func checkIfUserFocusedCmuxTarget(target: String) {
         DispatchQueue.global(qos: .utility).async { [weak self] in
-            // Check if cmux is frontmost
+            // cmux IS the terminal — if it's frontmost, the user can see the output.
+            // No need to check the exact workspace (unlike tmux which runs inside another app).
+            // Avoid calling cmux CLI here: CLI commands communicate via socket and can
+            // activate the cmux app, causing it to steal focus repeatedly.
             let frontmostScript = "tell application \"System Events\" to get name of first process whose frontmost is true"
             var error: NSDictionary?
             guard let appleScript = NSAppleScript(source: frontmostScript),
@@ -885,28 +889,8 @@ class CatWindowController: NSWindowController {
                 return
             }
 
-            // Check if the target workspace is currently selected
-            let task = Process()
-            let pipe = Pipe()
-            task.launchPath = Self.cmuxPath
-            task.arguments = ["list-workspaces"]
-            task.standardOutput = pipe
-            task.standardError = FileHandle.nullDevice
-            try? task.run()
-            task.waitUntilExit()
-
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            guard let output = String(data: data, encoding: .utf8) else { return }
-
-            // Look for the target workspace and check if it's the active one
-            // cmux list-workspaces typically marks the active workspace with * or similar
-            for line in output.components(separatedBy: "\n") {
-                if line.contains(target) && (line.contains("*") || line.contains("active") || line.contains("focused")) {
-                    DispatchQueue.main.async {
-                        self?.resetToIdle()
-                    }
-                    return
-                }
+            DispatchQueue.main.async {
+                self?.resetToIdle()
             }
         }
     }
