@@ -466,10 +466,12 @@ class CatWindowController: NSWindowController {
         updateSpeechBubblePosition()
         bubble.orderFront(nil)
 
-        // Start refresh timer
-        speechBubbleTimer?.invalidate()
-        speechBubbleTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-            self?.refreshSpeechBubbleContent()
+        // Start refresh timer (skip for cmux — repeated CLI calls steal focus)
+        if !isCmux {
+            speechBubbleTimer?.invalidate()
+            speechBubbleTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+                self?.refreshSpeechBubbleContent()
+            }
         }
     }
 
@@ -480,8 +482,6 @@ class CatWindowController: NSWindowController {
     }
 
     private func refreshSpeechBubbleContent() {
-        // Skip polling for cmux — CLI commands activate the app and steal focus
-        guard !isCmux else { return }
         guard let target = pendingTarget, let view = speechBubbleView else { return }
 
         DispatchQueue.global(qos: .utility).async { [weak self] in
@@ -539,8 +539,9 @@ class CatWindowController: NSWindowController {
 
     /// Read window/workspace name for the bubble header
     private func readWindowName(target: String) -> String? {
-        // Skip cmux CLI calls — they activate the app and steal focus
-        if isCmux { return nil }
+        if isCmux {
+            return readCmuxWorkspaceName(target: target)
+        }
         return readTmuxWindowName(target: target)
     }
 
