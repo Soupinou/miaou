@@ -66,7 +66,7 @@ Right-click the menu bar icon to configure:
 
 | Setting | Options |
 |---------|---------|
-| **Pet** | Soupinou, Chawy, Pistache, Chalom, Sundae, Lou |
+| **Pet** | Soupinou, Chawy, Pistache, Chalom, Sundae, Lou, Pompon |
 | **Size** | 0.5x to 2x |
 | **Speed** | 0.5x to 2x |
 | **Activity** | 10% (sleepy) to 90% (hyper), default 40% |
