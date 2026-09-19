@@ -225,8 +225,21 @@ class CatWindowController: NSWindowController {
         return "tmux"
     }()
 
-    private var pendingTarget: String?  // tmux target: session:window.pane
+    /// Resolve cmux binary path at startup
+    private static let cmuxPath: String = {
+        for path in ["/opt/homebrew/bin/cmux", "/usr/local/bin/cmux", "/Applications/cmux.app/Contents/MacOS/cmux"] {
+            if FileManager.default.isExecutableFile(atPath: path) {
+                return path
+            }
+        }
+        return "cmux"
+    }()
+
+    private var pendingTarget: String?  // tmux: session:window.pane, cmux: workspace_id
     private var pendingTitle: String?
+    private var pendingMux: String = "tmux"  // "tmux" or "cmux"
+
+    private var isCmux: Bool { pendingMux == "cmux" || prefs.terminalApp == "cmux" }
 
     // Tooltip window for showing notification title
     private var tooltipWindow: NSWindow?
@@ -430,7 +443,7 @@ class CatWindowController: NSWindowController {
             self?.hideSpeechBubble()
         }
         bubbleView.onClick = { [weak self] in
-            self?.openTmuxSession()
+            self?.openSession()
         }
 
         speechBubbleWindow = bubbleWindow
@@ -440,8 +453,8 @@ class CatWindowController: NSWindowController {
     private func showSpeechBubble(target: String?) {
         guard let bubble = speechBubbleWindow, let view = speechBubbleView else { return }
 
-        // Read tmux window name for the header
-        if let target = target, let paneName = readTmuxWindowName(target: target) {
+        // Read window/workspace name for the header
+        if let target = target, let paneName = readWindowName(target: target) {
             view.updateHeader("\(paneName) ~")
         } else {
             view.updateHeader("claude ~")
@@ -453,10 +466,12 @@ class CatWindowController: NSWindowController {
         updateSpeechBubblePosition()
         bubble.orderFront(nil)
 
-        // Start refresh timer
-        speechBubbleTimer?.invalidate()
-        speechBubbleTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-            self?.refreshSpeechBubbleContent()
+        // Start refresh timer (skip for cmux — repeated CLI calls steal focus)
+        if !isCmux {
+            speechBubbleTimer?.invalidate()
+            speechBubbleTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+                self?.refreshSpeechBubbleContent()
+            }
         }
     }
 
@@ -470,7 +485,7 @@ class CatWindowController: NSWindowController {
         guard let target = pendingTarget, let view = speechBubbleView else { return }
 
         DispatchQueue.global(qos: .utility).async { [weak self] in
-            guard let content = self?.readTmuxPane(target: target) else { return }
+            guard let content = self?.readPane(target: target) else { return }
             DispatchQueue.main.async {
                 view.updateContent(content)
                 self?.resizeSpeechBubble(for: content)
@@ -522,7 +537,14 @@ class CatWindowController: NSWindowController {
         }
     }
 
-    /// Read tmux window name for the bubble header
+    /// Read window/workspace name for the bubble header
+    private func readWindowName(target: String) -> String? {
+        if isCmux {
+            return readCmuxWorkspaceName(target: target)
+        }
+        return readTmuxWindowName(target: target)
+    }
+
     private func readTmuxWindowName(target: String) -> String? {
         guard target != "default",
               target.range(of: "^[A-Za-z0-9_.:-]+$", options: .regularExpression) != nil else {
@@ -552,7 +574,52 @@ class CatWindowController: NSWindowController {
         return output
     }
 
-    /// Read tmux pane content, stripping ANSI escape codes
+    private func readCmuxWorkspaceName(target: String) -> String? {
+        guard target != "default",
+              target.range(of: "^[A-Za-z0-9_.:-]+$", options: .regularExpression) != nil else {
+            return nil
+        }
+
+        let task = Process()
+        let pipe = Pipe()
+        task.launchPath = Self.cmuxPath
+        task.arguments = ["list-workspaces"]
+        task.standardOutput = pipe
+        task.standardError = FileHandle.nullDevice
+
+        do {
+            try task.run()
+            task.waitUntilExit()
+        } catch {
+            return nil
+        }
+
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        guard let output = String(data: data, encoding: .utf8) else { return nil }
+
+        // Parse workspace list to find the matching workspace name
+        // cmux list-workspaces output format varies — look for our target ID
+        for line in output.components(separatedBy: "\n") {
+            if line.contains(target) {
+                // Extract the workspace name (typically the last column or after the ID)
+                let parts = line.trimmingCharacters(in: .whitespaces).components(separatedBy: "\t")
+                if parts.count >= 2 {
+                    return parts.last?.trimmingCharacters(in: .whitespaces)
+                }
+                return line.trimmingCharacters(in: .whitespaces)
+            }
+        }
+        return nil
+    }
+
+    /// Read pane/surface content, stripping ANSI escape codes
+    private func readPane(target: String) -> String? {
+        if isCmux {
+            return readCmuxSurface(target: target)
+        }
+        return readTmuxPane(target: target)
+    }
+
     private func readTmuxPane(target: String) -> String? {
         guard target != "default",
               target.range(of: "^[A-Za-z0-9_.:-]+$", options: .regularExpression) != nil else {
@@ -618,6 +685,63 @@ class CatWindowController: NSWindowController {
         return result.isEmpty ? nil : result
     }
 
+    private func readCmuxSurface(target: String) -> String? {
+        guard target != "default",
+              target.range(of: "^[A-Za-z0-9_.:-]+$", options: .regularExpression) != nil else {
+            return nil
+        }
+
+        let task = Process()
+        let pipe = Pipe()
+        task.launchPath = Self.cmuxPath
+        task.arguments = ["read-screen", "--surface", target]
+        task.standardOutput = pipe
+        task.standardError = FileHandle.nullDevice
+
+        do {
+            try task.run()
+            task.waitUntilExit()
+        } catch {
+            return nil
+        }
+
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        guard let output = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+
+        // Strip ANSI escape sequences (same cleanup as tmux)
+        let ansiPattern = "\\x1b\\[[0-9;]*[a-zA-Z]|\\x1b\\][^\\x07]*\\x07|\\x1b[^\\[\\]][a-zA-Z]"
+        var stripped = output.replacingOccurrences(of: ansiPattern, with: "", options: .regularExpression)
+
+        stripped = stripped.filter { char in
+            let scalar = char.unicodeScalars.first!.value
+            return scalar < 0xE000 || (scalar > 0xF8FF && scalar < 0xF0000)
+        }
+
+        let lines = stripped.components(separatedBy: "\n")
+            .map { $0.replacingOccurrences(of: "\\s+$", with: "", options: .regularExpression) }
+            .map { line -> String in
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                if !trimmed.isEmpty && trimmed.unicodeScalars.allSatisfy({ scalar in
+                    let v = scalar.value
+                    return (v >= 0x2500 && v <= 0x257F) || v == 0x2014 || v == 0x2013 || v == 0x2015 || v == 0x5F
+                }) {
+                    return "───"
+                }
+                return line
+            }
+
+        let trimmed = Array(lines
+            .reversed()
+            .drop(while: { $0.isEmpty })
+            .reversed()
+            .suffix(15))
+
+        let result = trimmed.joined(separator: "\n")
+        return result.isEmpty ? nil : result
+    }
+
     @objc private func preferencesDidChange() {
         // Update cat type
         animator.catType = prefs.catType
@@ -652,9 +776,10 @@ class CatWindowController: NSWindowController {
         animator.resume()
     }
 
-    func triggerAttention(target: String?, title: String?) {
+    func triggerAttention(target: String?, title: String?, mux: String = "tmux") {
         pendingTarget = target
         pendingTitle = title
+        pendingMux = mux
 
         // Make sure cat is visible and running (in case it was hidden)
         // Use orderFront instead of showWindow to avoid stealing focus
@@ -706,10 +831,17 @@ class CatWindowController: NSWindowController {
             return
         }
 
+        if isCmux {
+            checkIfUserFocusedCmuxTarget(target: target)
+        } else {
+            checkIfUserFocusedTmuxTarget(target: target)
+        }
+    }
+
+    private func checkIfUserFocusedTmuxTarget(target: String) {
         let safeTarget = target.replacingOccurrences(of: "'", with: "'\"'\"'")
 
         DispatchQueue.global(qos: .utility).async { [weak self] in
-            // Check if Alacritty is frontmost
             let frontmostScript = "tell application \"System Events\" to get name of first process whose frontmost is true"
             var error: NSDictionary?
             guard let appleScript = NSAppleScript(source: frontmostScript),
@@ -718,7 +850,6 @@ class CatWindowController: NSWindowController {
                 return
             }
 
-            // Check if the target pane is active
             let task = Process()
             let pipe = Pipe()
             task.launchPath = "/bin/bash"
@@ -745,9 +876,37 @@ class CatWindowController: NSWindowController {
         }
     }
 
+    private func checkIfUserFocusedCmuxTarget(target: String) {
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            // cmux IS the terminal — if it's frontmost, the user can see the output.
+            // No need to check the exact workspace (unlike tmux which runs inside another app).
+            // Avoid calling cmux CLI here: CLI commands communicate via socket and can
+            // activate the cmux app, causing it to steal focus repeatedly.
+            let frontmostScript = "tell application \"System Events\" to get name of first process whose frontmost is true"
+            var error: NSDictionary?
+            guard let appleScript = NSAppleScript(source: frontmostScript),
+                  let result = appleScript.executeAndReturnError(&error).stringValue,
+                  result.lowercased() == "cmux" else {
+                return
+            }
+
+            DispatchQueue.main.async {
+                self?.resetToIdle()
+            }
+        }
+    }
+
     func handleStatusBarClick() {
         // Same behavior as clicking the cat
         if case .attentionNeeded = roaming.state {
+            openSession()
+        }
+    }
+
+    private func openSession() {
+        if isCmux {
+            openCmuxWorkspace()
+        } else {
             openTmuxSession()
         }
     }
@@ -757,7 +916,6 @@ class CatWindowController: NSWindowController {
         // Validate target to prevent command injection (only allow valid tmux target characters)
         if let target = pendingTarget, target != "default",
            target.range(of: "^[A-Za-z0-9_.:-]+$", options: .regularExpression) != nil {
-            // Escape single quotes as defense in depth
             let safeTarget = target.replacingOccurrences(of: "'", with: "'\"'\"'")
             let task = Process()
             task.launchPath = "/bin/bash"
@@ -788,7 +946,32 @@ class CatWindowController: NSWindowController {
             appleScript.executeAndReturnError(&error)
         }
 
-        // Reset the cat
+        resetToIdle()
+    }
+
+    private func openCmuxWorkspace() {
+        // Switch to the target workspace in cmux
+        if let target = pendingTarget, target != "default",
+           target.range(of: "^[A-Za-z0-9_.:-]+$", options: .regularExpression) != nil {
+            let task = Process()
+            task.launchPath = Self.cmuxPath
+            task.arguments = ["select-workspace", target]
+            task.standardError = FileHandle.nullDevice
+            try? task.run()
+            task.waitUntilExit()
+        }
+
+        // Bring cmux to the front
+        let script = """
+        tell application "cmux"
+            activate
+        end tell
+        """
+        var error: NSDictionary?
+        if let appleScript = NSAppleScript(source: script) {
+            appleScript.executeAndReturnError(&error)
+        }
+
         resetToIdle()
     }
 }
@@ -798,7 +981,7 @@ class CatWindowController: NSWindowController {
 extension CatWindowController: CatViewDelegate {
     func catViewWasClicked() {
         if case .attentionNeeded = roaming.state {
-            openTmuxSession()
+            openSession()
         }
     }
 

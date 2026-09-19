@@ -142,12 +142,15 @@ The Python inline script in `install_hooks()` merges into existing settings (nev
 ## Notification flow
 
 ```
-Hook fires → claude-code-notify.sh detects tmux session → open "miaou://notify?target=SESSION:WINDOW.PANE&title=..."
+Hook fires → claude-code-notify.sh detects multiplexer (cmux or tmux)
+→ open "miaou://notify?target=TARGET&mux=tmux|cmux"
 → AppDelegate receives URL → CatWindowController.triggerAttention() → cat bounces + status bar animates
-→ User clicks cat → tmux switch-client + activate terminal app → cat returns to idle
+→ User clicks cat → switch to target (tmux switch-client / cmux select-workspace) → cat returns to idle
 ```
 
-Auto-dismiss: if the user manually switches to the target tmux pane, the notification clears automatically (polled every 2s).
+**Multiplexer support:** The `mux` URL parameter (`tmux` or `cmux`) determines which backend is used. The hook script auto-detects: if `CMUX_SURFACE_ID` env var is set, it uses cmux; otherwise falls back to tmux. The Terminal preference in the status bar menu includes "cmux" — when selected, all operations route through cmux CLI (`select-workspace`, `read-screen`, `list-workspaces`).
+
+Auto-dismiss: if the user manually switches to the target pane/workspace, the notification clears automatically (polled every 2s).
 
 ## Security
 

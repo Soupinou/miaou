@@ -129,8 +129,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // URL decode title: replace + with space (form encoding), then percent-decode
             let title = components?.queryItems?.first(where: { $0.name == "title" })?.value?
                 .replacingOccurrences(of: "+", with: " ")
+            let mux = components?.queryItems?.first(where: { $0.name == "mux" })?.value ?? "tmux"
 
-            catWindowController?.triggerAttention(target: target, title: title)
+            catWindowController?.triggerAttention(target: target, title: title, mux: mux)
             startStatusBarAnimation()
 
         case "reset":
@@ -238,7 +239,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Terminal submenu
         let terminalItem = NSMenuItem(title: "Terminal", action: nil, keyEquivalent: "")
         let terminalMenu = NSMenu()
-        for name in ["Alacritty", "Ghostty", "iTerm2", "Terminal", "Kitty", "Warp", "WezTerm"] {
+        for name in ["Alacritty", "Ghostty", "iTerm2", "Terminal", "Kitty", "Warp", "WezTerm", "cmux"] {
             let item = NSMenuItem(title: name, action: #selector(selectTerminal(_:)), keyEquivalent: "")
             item.representedObject = name
             terminalMenu.addItem(item)
